@@ -1,15 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import langchainService, { 
+import aiInterviewService, { 
   InterviewQuestion, 
   InterviewFeedback, 
   ResumeAnalysis 
-} from '@/lib/langchain'
+} from '@/lib/ai-interview-service'
 import { useToast } from './use-toast'
-import { mockGenerateInterviewQuestions, mockAnalyzeInterviewResponse } from '@/lib/langchain'
+import { mockGenerateInterviewQuestions, mockAnalyzeInterviewResponse } from '@/lib/ai-interview-service'
 
-export function useLangchain() {
+export function useAIInterviewService() {
   const { toast } = useToast()
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false)
   const [isAnalyzingResponse, setIsAnalyzingResponse] = useState(false)
@@ -35,8 +35,8 @@ export function useLangchain() {
         return questions
       }
       
-      // Use the real LangChain service if API key is available
-      const questions = await langchainService.generateQuestions(
+      // Use the real AI service if API key is available
+      const questions = await aiInterviewService.generateQuestions(
         jobDescription,
         resumeText,
         count
@@ -75,8 +75,8 @@ export function useLangchain() {
         return feedback
       }
       
-      // Use the real LangChain service if API key is available
-      const feedback = await langchainService.analyzeResponse(
+      // Use the real AI service if API key is available
+      const feedback = await aiInterviewService.analyzeResponse(
         question,
         responseTranscript
       )
@@ -100,7 +100,7 @@ export function useLangchain() {
     setIsAnalyzingResume(true)
     
     try {
-      const analysis = await langchainService.analyzeResume(
+      const analysis = await aiInterviewService.analyzeResume(
         resumeText,
         jobDescription
       )

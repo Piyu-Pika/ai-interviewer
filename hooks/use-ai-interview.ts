@@ -3,8 +3,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useVideoRecorder } from './use-video-recorder'
 import { useTranscription } from './use-transcription'
-import { useLangchain } from './use-langchain'
-import { Job, InterviewQuestion, InterviewFeedback } from '@/lib/mock-data'
+import { useAIInterviewService } from './use-ai-interview-service'
+import { Job } from '@/lib/mock-data'
+import { InterviewQuestion, InterviewFeedback } from '@/lib/ai-interview-service'
 
 export type InterviewState = 'idle' | 'preparing' | 'instructions' | 'recording' | 'analyzing' | 'feedback' | 'completed'
 
@@ -40,7 +41,7 @@ export function useAIInterview(job: Job | null, options: AIInterviewOptions = {}
     useWhisper: !useRealTimeTranscription
   })
   
-  const langchain = useLangchain(useMockData)
+  const aiService = useAIInterviewService()
   
   // State
   const [interviewState, setInterviewState] = useState<InterviewState>('idle')
@@ -79,7 +80,7 @@ export function useAIInterview(job: Job | null, options: AIInterviewOptions = {}
     try {
       setIsGeneratingQuestions(true)
       
-      const generatedQuestions = await langchain.generateQuestions(
+      const generatedQuestions = await aiService.generateQuestions(
         job.title,
         job.description,
         questionsPerInterview
@@ -97,7 +98,7 @@ export function useAIInterview(job: Job | null, options: AIInterviewOptions = {}
     } finally {
       setIsGeneratingQuestions(false)
     }
-  }, [job, langchain, questionsPerInterview])
+  }, [job, aiService, questionsPerInterview])
   
   // Initialize interview
   const startInterview = useCallback(async () => {
@@ -195,10 +196,9 @@ export function useAIInterview(job: Job | null, options: AIInterviewOptions = {}
     setFeedbackInProgress(true)
     
     try {
-      const feedback = await langchain.analyzeResponse(
-        currentQuestion.question,
-        currentResponseRef.current,
-        currentQuestion.expectedAnswer || ''
+      const feedback = await aiService.analyzeResponse(
+        currentQuestion.text,
+        currentResponseRef.current
       )
       
       // Save response and feedback
@@ -208,7 +208,7 @@ export function useAIInterview(job: Job | null, options: AIInterviewOptions = {}
           questionId: currentQuestion.id,
           transcript: currentResponseRef.current,
           videoBlob,
-          feedback
+          feedback: feedback || undefined
         }
       ])
       
@@ -225,7 +225,7 @@ export function useAIInterview(job: Job | null, options: AIInterviewOptions = {}
     questions,
     videoRecorder,
     transcription,
-    langchain,
+    aiService,
     useRealTimeTranscription
   ])
   

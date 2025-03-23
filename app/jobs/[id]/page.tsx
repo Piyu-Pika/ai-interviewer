@@ -30,7 +30,7 @@ import {
 } from "lucide-react"
 import AIInterview from "@/components/ai-interview"
 import { jobs } from "@/lib/mock-data"
-import { useLangchain } from "@/hooks/use-langchain"
+import { useAIInterviewService } from "@/hooks/use-ai-interview-service"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 // Mock job data
@@ -128,8 +128,8 @@ export default function JobDetailPage() {
   // Get job data
   const job = jobs.find(j => j.id === params.id)
   
-  // LangChain hook for AI features
-  const { generateQuestions, isGeneratingQuestions } = useLangchain()
+  // AI interview service hook for AI features
+  const { generateQuestions, isGeneratingQuestions } = useAIInterviewService()
   const [aiQuestions, setAiQuestions] = useState<any[]>([])
 
   // Check authentication
