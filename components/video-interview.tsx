@@ -3,8 +3,47 @@
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Mic, MicOff, Video, VideoOff, Smile, Frown, Meh } from "lucide-react"
+import { Mic, MicOff, Video, VideoOff, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+
+// Add TypeScript declarations - using any type to avoid complex type errors
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+    cv: any;
+  }
+}
+
+// Simplified SpeechRecognition type
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: SpeechRecognitionErrorEvent) => void;
+  onend: () => void;
+}
+
+interface SpeechRecognitionEvent {
+  resultIndex: number;
+  results: {
+    [index: number]: {
+      [index: number]: {
+        transcript: string;
+      };
+      isFinal: boolean;
+      length: number;
+    };
+    length: number;
+  };
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: string;
+}
 
 interface VideoInterviewProps {
   onComplete?: (data: any) => void
@@ -29,17 +68,17 @@ export default function VideoInterview({
   const [isVideoOn, setIsVideoOn] = useState(true)
   const [countdown, setCountdown] = useState<number | null>(null)
   const [timeRemaining, setTimeRemaining] = useState(60) // 60 seconds per question
-  const [faceDetected, setFaceDetected] = useState(false)
+  const [faceDetected, setFaceDetected] = useState(true)
   const [facePosition, setFacePosition] = useState({ x: 0, y: 0, width: 0, height: 0 })
-  const [currentEmotion, setCurrentEmotion] = useState<string>("neutral")
   const [confidenceScore, setConfidenceScore] = useState(0)
-  const [emotionData, setEmotionData] = useState({
-    happy: 0,
-    neutral: 0,
-    sad: 0,
-    surprised: 0,
-    angry: 0,
-  })
+  const [isReadingQuestion, setIsReadingQuestion] = useState(false)
+  const [transcribedAnswer, setTranscribedAnswer] = useState("")
+  const [showTranscription, setShowTranscription] = useState(false)
+  const [showConfirmation, setShowConfirmation] = useState(false)
+  
+  // Speech recognition
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const speechSynthesisRef = useRef<SpeechSynthesisUtterance | null>(null)
 
   // OpenCV.js script loading
   useEffect(() => {
@@ -59,6 +98,13 @@ export default function VideoInterview({
       document.body.removeChild(script)
     }
   }, [])
+
+  // Read question aloud when component mounts
+  useEffect(() => {
+    if (currentQuestion) {
+      readQuestionAloud(currentQuestion)
+    }
+  }, [currentQuestion])
 
   // Initialize camera
   const initializeCamera = async () => {
@@ -90,6 +136,94 @@ export default function VideoInterview({
         description: "Please allow camera access to continue with the interview.",
       })
     }
+  }
+
+  // Read the question aloud using Text-to-Speech
+  const readQuestionAloud = (text: string) => {
+    if ('speechSynthesis' in window) {
+      setIsReadingQuestion(true)
+      
+      // Create speech synthesis utterance
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.rate = 1.0
+      utterance.pitch = 1.0
+      utterance.volume = 1.0
+      
+      speechSynthesisRef.current = utterance
+      
+      // When speech ends, start recording automatically
+      utterance.onend = () => {
+        setIsReadingQuestion(false)
+        startRecording()
+      }
+      
+      // Cancel any existing speech
+      window.speechSynthesis.cancel()
+      
+      // Start speaking
+      window.speechSynthesis.speak(utterance)
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Text-to-speech not supported",
+        description: "Your browser doesn't support text-to-speech. Recording will start immediately.",
+      })
+      startRecording()
+    }
+  }
+
+  // Initialize speech recognition
+  const initializeSpeechRecognition = () => {
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+      // Use the appropriate constructor
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+      const recognition = new SpeechRecognition()
+      
+      recognition.continuous = true
+      recognition.interimResults = true
+      recognition.lang = 'en-US'
+      
+      // @ts-ignore - Speech API types are not standard
+      recognition.onresult = (event: any) => {
+        let interimTranscript = ''
+        let finalTranscript = ''
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript
+          } else {
+            interimTranscript += transcript
+          }
+        }
+        
+        // Update transcription
+        setTranscribedAnswer(finalTranscript + interimTranscript)
+        setShowTranscription(true)
+      }
+      
+      // @ts-ignore - Speech API types are not standard
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error', event.error)
+        toast({
+          variant: "destructive",
+          title: "Speech recognition error",
+          description: `Error: ${event.error}`
+        })
+      }
+      
+      recognition.onend = () => {
+        // Don't restart if recording is stopped
+        if (isRecording) {
+          recognition.start()
+        }
+      }
+      
+      recognitionRef.current = recognition
+      return recognition
+    }
+    
+    return null
   }
 
   // Start face tracking
@@ -165,44 +299,20 @@ export default function VideoInterview({
       context.lineWidth = 2
       context.strokeRect(x, y, faceWidth, faceHeight)
 
-      // Simulate emotion detection
-      simulateEmotionDetection()
-
       // Simulate confidence score
       const newConfidence = 70 + Math.floor(Math.random() * 25)
       setConfidenceScore(newConfidence)
     } else {
       setFaceDetected(false)
-    }
-  }
-
-  // Simulate emotion detection
-  const simulateEmotionDetection = () => {
-    // Randomly change emotion occasionally
-    if (Math.random() > 0.95) {
-      const emotions = ["happy", "neutral", "sad", "surprised", "angry"]
-      const weights = [0.2, 0.5, 0.1, 0.1, 0.1] // More likely to be neutral
-
-      const random = Math.random()
-      let emotionIndex = 0
-      let sum = 0
-
-      for (let i = 0; i < weights.length; i++) {
-        sum += weights[i]
-        if (random <= sum) {
-          emotionIndex = i
-          break
-        }
+      
+      // Show face not detected warning if recording
+      if (isRecording) {
+        toast({
+          variant: "destructive",
+          title: "Face not detected",
+          description: "Please stay within the camera frame",
+        })
       }
-
-      setCurrentEmotion(emotions[emotionIndex])
-
-      // Update emotion data
-      setEmotionData((prev) => {
-        const newData = { ...prev }
-        newData[emotions[emotionIndex] as keyof typeof prev] += 1
-        return newData
-      })
     }
   }
 
@@ -245,6 +355,19 @@ export default function VideoInterview({
           clearInterval(countdownInterval)
           setIsRecording(true)
           startTimer()
+          
+          // Start speech recognition
+          const recognition = initializeSpeechRecognition()
+          if (recognition) {
+            recognition.start()
+          } else {
+            toast({
+              variant: "destructive",
+              title: "Speech recognition not supported",
+              description: "Your browser doesn't support speech recognition.",
+            })
+          }
+          
           return null
         }
         return prev - 1
@@ -269,11 +392,22 @@ export default function VideoInterview({
   // Finish recording
   const finishRecording = () => {
     setIsRecording(false)
-
+    
+    // Stop speech recognition
+    if (recognitionRef.current) {
+      recognitionRef.current.stop()
+    }
+    
+    // Show confirmation dialog
+    setShowConfirmation(true)
+  }
+  
+  // Confirm submission
+  const confirmSubmission = () => {
     // Prepare data to send back
     const interviewData = {
       questionNumber,
-      emotions: emotionData,
+      transcribedAnswer: transcribedAnswer,
       confidenceScore,
       faceDetectionRate: faceDetected ? 90 + Math.floor(Math.random() * 10) : 0, // Percentage of time face was detected
       duration: 60 - timeRemaining,
@@ -284,25 +418,20 @@ export default function VideoInterview({
       onComplete(interviewData)
     }
   }
+  
+  // Cancel submission
+  const cancelSubmission = () => {
+    setShowConfirmation(false)
+    // Reset timer and restart recording
+    setTimeRemaining(60)
+    startRecording()
+  }
 
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
-  }
-
-  // Get emotion icon
-  const getEmotionIcon = () => {
-    switch (currentEmotion) {
-      case "happy":
-        return <Smile className="h-5 w-5 text-green-500" />
-      case "sad":
-      case "angry":
-        return <Frown className="h-5 w-5 text-red-500" />
-      default:
-        return <Meh className="h-5 w-5 text-yellow-500" />
-    }
   }
 
   return (
@@ -313,6 +442,11 @@ export default function VideoInterview({
             Question {questionNumber} of {totalQuestions}
           </h2>
           <p className="text-lg">{currentQuestion}</p>
+          {isReadingQuestion && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Speaking question aloud... Recording will begin automatically.
+            </p>
+          )}
         </div>
 
         <div className="video-container bg-gray-900 aspect-video relative mb-6">
@@ -347,6 +481,14 @@ export default function VideoInterview({
               />
             )}
 
+            {/* Face not detected warning */}
+            {!faceDetected && isRecording && (
+              <div className="absolute top-4 left-0 right-0 mx-auto w-max bg-red-500 text-white px-4 py-2 rounded-md flex items-center gap-2">
+                <AlertCircle className="h-5 w-5" />
+                <span>Face not detected - please stay in frame</span>
+              </div>
+            )}
+
             {/* Countdown overlay */}
             {countdown !== null && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-40">
@@ -362,24 +504,11 @@ export default function VideoInterview({
               </div>
             )}
 
-            {/* Emotion indicator */}
-            {faceDetected && isRecording && (
-              <div className="emotion-indicator flex items-center gap-2">
-                {getEmotionIcon()}
-                <span className="capitalize">{currentEmotion}</span>
-              </div>
-            )}
-
-            {/* Confidence meter */}
-            {faceDetected && isRecording && (
-              <div className="confidence-meter">
-                <div className="flex justify-between text-xs mb-1">
-                  <span>Confidence</span>
-                  <span>{confidenceScore}%</span>
-                </div>
-                <div className="confidence-bar">
-                  <div className="confidence-value" style={{ width: `${confidenceScore}%` }}></div>
-                </div>
+            {/* Transcription overlay */}
+            {showTranscription && transcribedAnswer && (
+              <div className="absolute bottom-4 left-4 right-4 bg-black/70 p-3 rounded-md text-white max-h-32 overflow-y-auto">
+                <p className="text-xs mb-1 text-gray-300">Transcription:</p>
+                <p className="text-sm">{transcribedAnswer}</p>
               </div>
             )}
 
@@ -394,6 +523,20 @@ export default function VideoInterview({
             )}
           </div>
         </div>
+
+        {/* Confirmation dialog */}
+        {showConfirmation && (
+          <div className="bg-primary/10 p-4 rounded-md mb-6">
+            <h3 className="font-medium mb-2">Confirm Submission</h3>
+            <p className="text-sm mb-4">
+              Your response has been recorded. Would you like to submit this answer or try again?
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={cancelSubmission}>Try Again</Button>
+              <Button onClick={confirmSubmission}>Submit Answer</Button>
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="flex gap-2">
@@ -413,7 +556,9 @@ export default function VideoInterview({
                 <Button variant="outline" onClick={onCancel}>
                   Cancel
                 </Button>
-                <Button onClick={startRecording}>Start Recording</Button>
+                {!isReadingQuestion && !showConfirmation && (
+                  <Button onClick={startRecording}>Start Recording</Button>
+                )}
               </>
             )}
           </div>

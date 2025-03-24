@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,7 +14,7 @@ import { generateText } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import VideoInterview from "@/components/video-interview"
-import { Video, MessageSquare } from "lucide-react"
+import { Video, MessageSquare, AlertCircle } from "lucide-react"
 
 // Mock interview data
 const interviewData = {
@@ -43,6 +43,9 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   const [isCompleted, setIsCompleted] = useState(false)
   const [interviewMode, setInterviewMode] = useState<"text" | "video">("text")
   const [videoData, setVideoData] = useState<any[]>([])
+  const [isFullScreen, setIsFullScreen] = useState(false)
+  const [fullScreenWarningShown, setFullScreenWarningShown] = useState(false)
+  const fullScreenTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Check authentication
   useEffect(() => {
@@ -51,6 +54,85 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
       router.push("/auth/login")
     }
   }, [router])
+
+  // Handle full screen on component mount
+  useEffect(() => {
+    const enterFullScreen = () => {
+      const element = document.documentElement
+      if (element.requestFullscreen) {
+        element.requestFullscreen()
+      }
+      setIsFullScreen(true)
+    }
+
+    // Enter full screen when the component mounts
+    enterFullScreen()
+
+    // Set up listener for full screen change
+    const handleFullScreenChange = () => {
+      const isCurrentlyFullScreen = Boolean(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      )
+      
+      setIsFullScreen(isCurrentlyFullScreen)
+      
+      // Handle exit from full screen
+      if (!isCurrentlyFullScreen && !isCompleted) {
+        // Show warning if not already shown
+        if (!fullScreenWarningShown) {
+          toast({
+            variant: "destructive",
+            title: "Warning: Full Screen Required",
+            description: "Please return to full screen mode or your interview may be rejected.",
+          })
+          setFullScreenWarningShown(true)
+          
+          // Set timeout to end interview if still not in full screen
+          if (fullScreenTimeoutRef.current) {
+            clearTimeout(fullScreenTimeoutRef.current)
+          }
+          
+          fullScreenTimeoutRef.current = setTimeout(() => {
+            if (!document.fullscreenElement) {
+              toast({
+                variant: "destructive",
+                title: "Interview Terminated",
+                description: "Your interview has been terminated due to exiting full screen mode.",
+              })
+              router.push("/candidate")
+            }
+          }, 10000) // Give 10 seconds to return to full screen
+        }
+      } else if (isCurrentlyFullScreen) {
+        // Reset warning state when returned to full screen
+        setFullScreenWarningShown(false)
+        if (fullScreenTimeoutRef.current) {
+          clearTimeout(fullScreenTimeoutRef.current)
+          fullScreenTimeoutRef.current = null
+        }
+      }
+    }
+
+    document.addEventListener("fullscreenchange", handleFullScreenChange)
+    document.addEventListener("webkitfullscreenchange", handleFullScreenChange)
+    document.addEventListener("mozfullscreenchange", handleFullScreenChange)
+    document.addEventListener("MSFullscreenChange", handleFullScreenChange)
+
+    // Clean up event listeners on component unmount
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullScreenChange)
+      document.removeEventListener("webkitfullscreenchange", handleFullScreenChange)
+      document.removeEventListener("mozfullscreenchange", handleFullScreenChange)
+      document.removeEventListener("MSFullscreenChange", handleFullScreenChange)
+      
+      if (fullScreenTimeoutRef.current) {
+        clearTimeout(fullScreenTimeoutRef.current)
+      }
+    }
+  }, [isCompleted, fullScreenWarningShown, router, toast])
 
   const handleAnswerChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCurrentAnswer(e.target.value)
@@ -124,18 +206,19 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     setIsLoading(true)
 
     try {
-      // Generate AI feedback based on video analysis
+      // Generate AI feedback based on video data and transcribed answer
       const { text } = await generateText({
         model: openai("gpt-4o"),
         prompt: `You are an AI interviewer evaluating a candidate for a ${interviewData.position} position.
                 The question was: "${interviewData.questions[currentQuestion]}"
                 The candidate's video interview data shows:
                 - Confidence score: ${data.confidenceScore}%
-                - Primary emotion: ${Object.entries(data.emotions).sort((a, b) => b[1] - a[1])[0][0]}
                 - Face detection rate: ${data.faceDetectionRate}%
                 - Interview duration: ${data.duration} seconds
                 
-                Provide a brief, constructive feedback on their performance. Focus on their confidence, engagement, and presentation. Be encouraging but honest.`,
+                The candidate's transcribed answer was: "${data.transcribedAnswer || "No transcription available."}"
+                
+                Provide a brief, constructive feedback on their response and presentation. Be encouraging but honest.`,
       })
 
       setFeedback(text)
@@ -279,21 +362,9 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
                     </div>
 
                     <div className="mt-4">
-                      <p className="text-sm text-gray-600 mb-1">Emotion Analysis</p>
-                      <div className="grid grid-cols-5 gap-2">
-                        {Object.entries(videoData[currentQuestion].emotions).map(([emotion, count]) => (
-                          <div key={emotion} className="text-center">
-                            <div className="h-20 bg-gray-200 rounded-md relative overflow-hidden">
-                              <div
-                                className="absolute bottom-0 w-full bg-primary"
-                                style={{
-                                  height: `${((count as number) / Math.max(...(Object.values(videoData[currentQuestion].emotions) as number[]))) * 100}%`,
-                                }}
-                              ></div>
-                            </div>
-                            <p className="text-xs mt-1 capitalize">{emotion}</p>
-                          </div>
-                        ))}
+                      <p className="text-sm text-gray-600 mb-1">Your Transcribed Answer:</p>
+                      <div className="bg-white p-3 rounded-md text-sm">
+                        {videoData[currentQuestion].transcribedAnswer || "No transcription available."}
                       </div>
                     </div>
                   </div>
@@ -335,6 +406,26 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="container py-8 max-w-4xl">
+      {!isFullScreen && !isCompleted && (
+        <Card className="mb-4 border-red-500">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-red-500">
+              <AlertCircle className="h-5 w-5" />
+              <div>
+                <p className="font-medium">Warning: Full Screen Required</p>
+                <p className="text-sm">Your interview may be rejected if you don't return to full screen mode.</p>
+                <Button 
+                  className="mt-2" 
+                  onClick={() => document.documentElement.requestFullscreen()}
+                >
+                  Return to Full Screen
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="mb-8">
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">

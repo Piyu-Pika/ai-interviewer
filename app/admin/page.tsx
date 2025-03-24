@@ -195,6 +195,27 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Site Content Management Section */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">Site Content Management</h2>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-medium">About Us Page</CardTitle>
+              <CardDescription>Edit your company information, team members, and values</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild className="w-full">
+                <Link href="/admin/about-us">
+                  Edit About Us Page
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+          {/* Additional content management cards can be added here */}
+        </div>
+      </div>
 
       <Tabs defaultValue="jobs" className="space-y-4">
         <TabsList>
@@ -322,7 +343,7 @@ export default function AdminDashboard() {
                         <Badge
                           variant={
                             interview.status === "Completed"
-                              ? "success"
+                              ? "default"
                               : interview.status === "In Progress"
                                 ? "default"
                                 : "secondary"
