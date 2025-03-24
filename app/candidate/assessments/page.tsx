@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CalendarClock, Clock, Video, FileText, CheckCircle2, AlertCircle } from "lucide-react"
-import AIInterview from "@/components/ai-interview"
+import {AIInterview} from "@/components/ai-interview"
 import { jobs, interviews } from "@/lib/mock-data"
 
 export default function CandidateAssessmentsPage() {
