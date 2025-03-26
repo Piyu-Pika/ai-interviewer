@@ -293,7 +293,7 @@ export default function Home() {
               variant="outline"
               className="border-white text-white hover:bg-white hover:text-primary"
             >
-              <Link href="/demo">Request Demo</Link>
+              <Link href="/request-demo">Request Demo</Link>
             </Button>
           </div>
           <div className="mt-8 flex items-center justify-center gap-8">
@@ -312,97 +312,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12 px-4 mt-auto">
-        <div className="container mx-auto max-w-6xl">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            <div>
-              <h3 className="font-bold text-lg mb-4">Platform</h3>
-              <ul className="space-y-2">
-                <li>
-                  <Link href="/jobs" className="text-gray-300 hover:text-white">
-                    Browse Jobs
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/pricing" className="text-gray-300 hover:text-white">
-                    Pricing
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/about" className="text-gray-300 hover:text-white">
-                    About Us
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-bold text-lg mb-4">For Candidates</h3>
-              <ul className="space-y-2">
-                <li>
-                  <Link href="/auth/signup?role=candidate" className="text-gray-300 hover:text-white">
-                    Sign Up
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/auth/login" className="text-gray-300 hover:text-white">
-                    Login
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/resources" className="text-gray-300 hover:text-white">
-                    Resources
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-bold text-lg mb-4">For Employers</h3>
-              <ul className="space-y-2">
-                <li>
-                  <Link href="/auth/signup?role=admin" className="text-gray-300 hover:text-white">
-                    Sign Up
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/auth/login" className="text-gray-300 hover:text-white">
-                    Login
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/demo" className="text-gray-300 hover:text-white">
-                    Request Demo
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-bold text-lg mb-4">Legal</h3>
-              <ul className="space-y-2">
-                <li>
-                  <Link href="/privacy" className="text-gray-300 hover:text-white">
-                    Privacy Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/terms" className="text-gray-300 hover:text-white">
-                    Terms of Service
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/contact" className="text-gray-300 hover:text-white">
-                    Contact Us
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>© {new Date().getFullYear()} AI Interviewer Platform. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

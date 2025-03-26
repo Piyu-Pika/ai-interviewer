@@ -26,6 +26,22 @@ export default function Navbar() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [userName, setUserName] = useState<string>("")
+  const [notifications, setNotifications] = useState([
+    {
+      id: "1",
+      title: "Interview Scheduled",
+      message: "Your interview with Google has been scheduled for tomorrow at 2 PM.",
+      timestamp: "2 hours ago",
+      read: false,
+    },
+    {
+      id: "2",
+      title: "Profile Update Required",
+      message: "Please update your profile information to complete your application.",
+      timestamp: "1 day ago",
+      read: true,
+    },
+  ])
 
   // Check if user is authenticated (client-side)
   useEffect(() => {
@@ -98,10 +114,44 @@ export default function Navbar() {
       <div className="hidden md:flex gap-4">
         {isAuthenticated ? (
           <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0">3</Badge>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative">
+                  <Bell className="h-5 w-5" />
+                  {notifications.some(n => !n.read) && (
+                    <Badge
+                      variant="destructive"
+                      className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]"
+                    >
+                      {notifications.filter(n => !n.read).length}
+                    </Badge>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80">
+                <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {notifications.length > 0 ? (
+                  notifications.map((notification) => (
+                    <DropdownMenuItem key={notification.id} className="flex flex-col items-start gap-1">
+                      <div className="flex items-center justify-between w-full">
+                        <span className="font-medium">{notification.title}</span>
+                        <span className="text-xs text-gray-500">{notification.timestamp}</span>
+                      </div>
+                      <p className="text-sm text-gray-600">{notification.message}</p>
+                    </DropdownMenuItem>
+                  ))
+                ) : (
+                  <DropdownMenuItem disabled>No notifications</DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/notifications" className="w-full text-center">
+                    View all notifications
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -122,9 +172,9 @@ export default function Navbar() {
                     <Link href="/recruiter/jobs">Manage Jobs</Link>
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem asChild>
+                {/* <DropdownMenuItem asChild>
                   <Link href="/profile">Profile</Link>
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
                 <DropdownMenuItem asChild>
                   <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
@@ -137,7 +187,7 @@ export default function Navbar() {
           </div>
         ) : (
           <>
-            <Button asChild variant="outline" className="bg-orange-500 hover:bg-orange-600 text-white border-none">
+            <Button asChild variant="outline" className="bg-orange-500 hover:bg-orange-600 text-white border-none dark:text-white">
               <Link href="/request-demo">Request Demo</Link>
             </Button>
             {authLinks.map((link, index) => (
