@@ -52,7 +52,7 @@ export default function Home() {
               <div className="bg-white p-1 rounded-lg shadow-2xl">
                 <div className="relative">
                   <img
-                    src="/placeholder.svg?height=400&width=600"
+                    src="/assets/hero-image.png"
                     alt="AI Interview Platform"
                     className="w-full h-auto rounded"
                   />
