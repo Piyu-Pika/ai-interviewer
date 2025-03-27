@@ -28,7 +28,7 @@ import {
   Sparkles,
   User,
 } from "lucide-react"
-import AIInterview from "@/components/ai-interview"
+import { AIInterview } from "@/components/ai-interview"
 import { jobs } from "@/lib/mock-data"
 import { useAIInterviewService } from "@/hooks/use-ai-interview-service"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
